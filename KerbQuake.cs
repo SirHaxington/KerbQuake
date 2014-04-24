@@ -159,13 +159,13 @@ namespace KerbQuake
             GameEvents.onCrash.Add(this.onVesselCollision);
             GameEvents.onCrashSplashdown.Add(this.onVesselCollision);
 
-            Debug.Log("listening for crashes and collisions");
+            //Debug.Log("listening for crashes and collisions");
         }
 
         // This should be re-done, but works for now.
         public void onVesselCollision(EventReport report)
         {
-            Debug.Log("handling collision");
+            //Debug.Log("handling collision");
 
             // get distance between crashed part and vessel
             double dist = Vector3d.Distance(report.origin.transform.localPosition, FlightGlobals.ActiveVessel.transform.localPosition);
@@ -193,7 +193,7 @@ namespace KerbQuake
         // Used to find when decouplers fire
         public void onVesselStageSeparate(EventReport report)
         {
-            Debug.Log("handling separation");
+            //Debug.Log("handling separation");
 
             Part part = report.origin;
 
@@ -221,7 +221,7 @@ namespace KerbQuake
         // the event to fire
         public void onVesselDock(GameEvents.FromToAction<Part, Part> action)
         {
-            Debug.Log("handling dock");
+            //Debug.Log("handling dock");
             dockShakeTime = dockShakeTimes[0];
         }
 

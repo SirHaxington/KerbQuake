@@ -53,7 +53,7 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>copy/b/y "C:\Users\Jesse\Documents\Visual Studio 2013\Projects\KerbQuake\KerbQuake\bin\Debug\KerbQuake.dll" "D:\Steam\SteamApps\common\Kerbal Space Program_DEV\GameData\KerbQuake"
+    <PostBuildEvent>copy/b/y "C:\Users\Jesse\Documents\Visual Studio 2013\Projects\KerbQuake\KerbQuake\bin\Release\KerbQuake.dll" "D:\Steam\SteamApps\common\Kerbal Space Program_DEV\GameData\KerbQuake"
 "D:\Steam\SteamApps\common\Kerbal Space Program_DEV\KSP.exe"
 
 </PostBuildEvent>
