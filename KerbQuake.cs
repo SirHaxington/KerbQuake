@@ -10,9 +10,7 @@ using KSP;
 // - Parachute Shakes
 // - Ambient Atmopsheric Speed Shake
 // - Docking Shake
-
-// to do:
-// launch clamps 
+// - Launch Clamps
 
 namespace KerbQuake
 {
@@ -50,6 +48,7 @@ namespace KerbQuake
         float[] decoupleShakeTimes        = new float[] { 0.1f,  0.2f, 0.3f, 0.4f, 0.5f };
         float[] landedShakeTimes          = new float[] { 0.15f, 0.25f, 0.35f, 0.45f, 0.55f };
         float[] paraShakeTimes            = new float[] { 0.4f };
+        float[] clampShakeTimes           = new float[] { 0.5f };
         float[] dockShakeTimes            = new float[] { 0.25f };
         float[] collisionShakeTimes       = new float[] { 0.1f, 0.2f, 0.35f, 0.5f, 0.65f, 0.75f };
         float   maxEngineForce            = 4000.0f;
@@ -60,11 +59,13 @@ namespace KerbQuake
         // states
         float   decoupleShakeTime         = 0.0f;
         float   paraShakeTime             = 0.0f;
+        float   clampShakeTime            = 0.0f;
         float   dockShakeTime             = 0.0f;
         float   decoupleShakeForce        = 0.0f;
         float   ejectionForceTotal        = 0;
         float   engineThrustTotal         = 0;
         int     totalUndeployedChutes     = 0;
+        int     totalClampedClamps        = 0;
         float   landedShakeTime           = 0.0f;
         float   landedShakeForce          = 0.0f;
         float   landedPrevSrfSpd          = 0.0f;
@@ -77,6 +78,7 @@ namespace KerbQuake
         bool    doEngineShake             = false;
         bool    doLanded                  = false;
         bool    doParaFull                = false;
+        bool    doClamp                   = false;
 
         Vector3     shakeAmt              = new Vector3(0, 0, 0);
         Quaternion  shakeRot              = new Quaternion(0, 0, 0, 0);
@@ -339,7 +341,9 @@ namespace KerbQuake
             //
             //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-            // to do...
+            int clampCheck = 0;                                 
+
+            // a clamp has detached...
             foreach (Part part in vessel.parts)
             {
                 foreach (PartModule module in part.Modules)
@@ -348,10 +352,33 @@ namespace KerbQuake
                     {
                         LaunchClamp lc = module as LaunchClamp;
 
-                        // use parachute open logic
+                        if (lc.enabled)
+                            clampCheck++;
                     }
                 }
             }
+
+            // check against previous frames' chutes, then prep shake event
+            if (clampCheck < totalClampedClamps)
+            {
+                doClamp = true;
+                clampShakeTime = clampShakeTimes[0];
+            }
+
+            // set this at end of check for next frame
+            totalClampedClamps = clampCheck;
+
+            // do the parachute pop shake
+            if (clampShakeTime > 0 && doClamp)
+            {
+                shakeAmt = ReturnLargerAmt(Random.insideUnitSphere / 500, shakeAmt);
+                shakeRot = ReturnLargerRot(Quaternion.Euler(0, 0, Random.Range(-0.7f, 0.7f)), shakeRot);
+                clampShakeTime -= Time.deltaTime;
+            }
+            else if (clampShakeTime <= 0)
+                doClamp = false;
+
+
  
 
             //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
