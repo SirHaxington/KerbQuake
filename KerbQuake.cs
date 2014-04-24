@@ -34,7 +34,7 @@ using KSP;
 // -------------------------------------------------------------------------------------------------------
 
 // #######################################################################################################
-// KERBQUAKE
+// KERBQUAKE 1.0
 // 
 // KerbQuake adds camera shake for various events while in IVA. The following events will shake
 // the cam as described below. The largest shakes (if many happen at once) will take precedence.

@@ -51,6 +51,9 @@
     <Compile Include="KerbQuake.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="KerbQuake_README.txt" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PostBuildEvent>copy/b/y "C:\Users\Jesse\Documents\Visual Studio 2013\Projects\KerbQuake\KerbQuake\bin\GameData\KerbQuake\KerbQuake.dll" "D:\Steam\SteamApps\common\Kerbal Space Program_DEV\GameData\KerbQuake"
