@@ -12,7 +12,7 @@ using KSP;
 // - Docking Shake
 
 // to do:
-// crash shakes
+// launch clamps 
 
 namespace KerbQuake
 {
@@ -51,6 +51,7 @@ namespace KerbQuake
         float[] landedShakeTimes          = new float[] { 0.15f, 0.25f, 0.35f, 0.45f, 0.55f };
         float[] paraShakeTimes            = new float[] { 0.4f };
         float[] dockShakeTimes            = new float[] { 0.25f };
+        float[] collisionShakeTimes       = new float[] { 0.1f, 0.2f, 0.35f, 0.5f, 0.65f, 0.75f };
         float   maxEngineForce            = 4000.0f;
         float   maxLandedForce            = 15.0f;
         float   maxDecoupleForce          = 1000.0f;
@@ -68,6 +69,9 @@ namespace KerbQuake
         float   landedShakeForce          = 0.0f;
         float   landedPrevSrfSpd          = 0.0f;
         int     landedPrevParts           = 0;
+        double  collisionClosest          = -1.0f;
+        float   collisionShakeTime        = 0.0f;
+        float   collisionShakeForce       = 0.0f;
         
         bool    doDecoupleShake           = false;
         bool    doEngineShake             = false;
@@ -81,36 +85,39 @@ namespace KerbQuake
         // Set up callbacks / events
         public void Awake()
         {
-            GameEvents.onPartJointBreak.Add(this.onPartBreak);
             GameEvents.onCollision.Add(this.onVesselCollision);
-            GameEvents.onCrash.Add(this.onVesselCrash);
-            GameEvents.onCrashSplashdown.Add(this.onVesselCrashSplash);
             GameEvents.onStageSeparation.Add(this.onVesselStageSeparate);
             GameEvents.onPartCouple.Add(this.onVesselDock);
 
             Debug.Log("listening for crashes and collisions");
         }
 
-        public void onPartBreak(PartJoint joint)
-        {
-            Debug.Log("handling jointbreak");
-        }
-
+        // This should be re-done, but works for now.
         public void onVesselCollision(EventReport report)
         {
             Debug.Log("handling collision");
-            Debug.Log(report.origin.transform.localPosition);
-            Debug.Log(FlightGlobals.ActiveVessel.transform.localPosition);
-        }
 
-        public void onVesselCrash(EventReport report)
-        {
-            Debug.Log("handling crash");
-        }
+            // get distance between crashed part and vessel
+            double dist = Vector3d.Distance(report.origin.transform.localPosition, FlightGlobals.ActiveVessel.transform.localPosition);
 
-        public void onVesselCrashSplash(EventReport report)
-        {
-            Debug.Log("handling crash splash");
+            // if part is closer, do longer shake and reset timer, dont do it outside of 30 (arbitrary)
+            if ((collisionClosest > dist) || (collisionClosest < 0) && (dist < 30))
+            {
+                collisionClosest = dist;
+                
+                if (dist <= 0)
+                    collisionShakeTime = collisionShakeTimes[5];
+                else if (dist <= 1)
+                    collisionShakeTime = collisionShakeTimes[4];
+                else if (dist <= 3)
+                    collisionShakeTime = collisionShakeTimes[3];
+                else if (dist <= 8)
+                    collisionShakeTime = collisionShakeTimes[2];
+                else if (dist <= 16)
+                    collisionShakeTime = collisionShakeTimes[1];
+                else
+                    collisionShakeTime = collisionShakeTimes[0];
+            }
         }
 
         // Used to find when decouplers fire
@@ -328,6 +335,27 @@ namespace KerbQuake
 
             //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
             //
+            // launch clamp shakes
+            //
+            //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+            // to do...
+            foreach (Part part in vessel.parts)
+            {
+                foreach (PartModule module in part.Modules)
+                {
+                    if (module.moduleName.Contains("LaunchClamp"))
+                    {
+                        LaunchClamp lc = module as LaunchClamp;
+
+                        // use parachute open logic
+                    }
+                }
+            }
+ 
+
+            //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+            //
             // engine shakes
             //
             //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -376,6 +404,24 @@ namespace KerbQuake
 
             // reset every frame
             engineThrustTotal = 0;
+
+            //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+            //
+            // nearby collision shakes
+            //
+            //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+            // do the collision shake...we set the time from the handler, no need for other checks
+            if (collisionShakeTime > 0)
+            {
+                shakeAmt = ReturnLargerAmt(Random.insideUnitSphere / 50, shakeAmt);
+                shakeRot = ReturnLargerRot(Quaternion.Euler(0, 0, Random.Range(-1.5f, 1.5f)), shakeRot);
+                collisionShakeTime -= Time.deltaTime;
+                print(shakeAmt);
+            }
+
+            // reset for next frame, use negative since we're looking for distance now
+            collisionClosest = -1;
 
             //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
             //
