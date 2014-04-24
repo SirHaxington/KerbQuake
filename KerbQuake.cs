@@ -32,18 +32,18 @@ using KSP;
 // EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 // -------------------------------------------------------------------------------------------------------
- 
+
 // #######################################################################################################
 // KERBQUAKE
 // 
 // KerbQuake adds camera shake for various events while in IVA. The following events will shake
-// the cam as descibed below. The largest shakes (if many happen at once) will take precedence.
+// the cam as described below. The largest shakes (if many happen at once) will take precedence.
 //
 // Engine Shakes:
 //    - The combined engines total thrust will shake the cam accordingly. Throttle up the mainsails!
 // 
-// Atmopsheric Shakes:
-//    - The more dense and faster though atmopheres you move will shake harder.
+// Atmospheric Shakes:
+//    - The more dense and faster though atmospheres you move will shake harder.
 //    - Hitting terminal velocity will exaggerate the shake.
 //    - Re-entry fx will REALLY exaggerate the shake.
 // 
@@ -156,6 +156,8 @@ namespace KerbQuake
             GameEvents.onCollision.Add(this.onVesselCollision);
             GameEvents.onStageSeparation.Add(this.onVesselStageSeparate);
             GameEvents.onPartCouple.Add(this.onVesselDock);
+            GameEvents.onCrash.Add(this.onVesselCollision);
+            GameEvents.onCrashSplashdown.Add(this.onVesselCollision);
 
             Debug.Log("listening for crashes and collisions");
         }
@@ -510,7 +512,6 @@ namespace KerbQuake
                 shakeAmt = ReturnLargerAmt(Random.insideUnitSphere / 50, shakeAmt);
                 shakeRot = ReturnLargerRot(Quaternion.Euler(0, 0, Random.Range(-1.5f, 1.5f)), shakeRot);
                 collisionShakeTime -= Time.deltaTime;
-                print(shakeAmt);
             }
 
             // reset for next frame, use negative since we're looking for distance now
