@@ -2,20 +2,81 @@
 using UnityEngine;
 using KSP;
 
-
-// DONE:
-// - Decoupler Shakes
-// - Throttle Shakes
-// - Landing Shakes
-// - Parachute Shakes
-// - Ambient Atmopsheric Speed Shake
-// - Docking Shake
-// - Launch Clamps
+// -------------------------------------------------------------------------------------------------------
+// Copyright (c) 2014, Jesse Snyder (Sir Haxington)
+// All rights reserved.
+//
+// Redistribution and use in source and binary forms, with or without modification, 
+// are permitted provided that the following conditions are met:
+//
+// Redistributions of source code must retain the above copyright notice, 
+// this list of conditions and the following disclaimer.
+//
+// Redistributions in binary form must reproduce the above copyright notice,
+// this list of conditions and the following disclaimer in the documentation 
+// and/or other materials provided with the distribution.
+// 
+// Neither the name of the <ORGANIZATION> nor the names of its contributors may 
+// be used to endorse or promote products derived from this software 
+// without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
+// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, 
+// THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE 
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE 
+// FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES 
+// (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; 
+// LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY 
+// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING 
+// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+// EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+// -------------------------------------------------------------------------------------------------------
+ 
+// #######################################################################################################
+// KERBQUAKE
+// 
+// KerbQuake adds camera shake for various events while in IVA. The following events will shake
+// the cam as descibed below. The largest shakes (if many happen at once) will take precedence.
+//
+// Engine Shakes:
+//    - The combined engines total thrust will shake the cam accordingly. Throttle up the mainsails!
+// 
+// Atmopsheric Shakes:
+//    - The more dense and faster though atmopheres you move will shake harder.
+//    - Hitting terminal velocity will exaggerate the shake.
+//    - Re-entry fx will REALLY exaggerate the shake.
+// 
+// Landing & Collision Shakes: 
+//    - Landing shake will depend on how hard you land and fires when each part touches the ground / water.
+//    - Nearby collisions (parts popping off you ship on rough landings) will shake the cam hard.
+//
+// Decouplers & Launch Clamps
+//    - Decouplers total ejection force will shake accordingly.
+//    - Launch clamps will shake when released but won't be seen on larger take-offs.
+// 
+// Docking
+//    - The cam will shake on successful docking, giving you visual feedback for IVA docking!
+//
+// Parachutes
+//    - Parachutes will add to the atmospheric shake while semi-deployed.
+//    - Parachutes will damped the atmospheric shake while fully deployed.
+//    - Chutes will give a healthy shake when they go from semi-deployed to fully deployed.
+//  
+// #######################################################################################################
 
 namespace KerbQuake
 {
 #if DEBUG
-    //This will kick us into the save called default and set the first vessel active
+
+    //################################################################################################################################
+    //
+    // DEBUG (thanks Trigger Au!)
+    //
+    //################################################################################################################################
+
+    //This will kick us into the save called default and set the first vessel active 
+    //(HAX: note, this is rough with the ARM update, asteroids spawn and mess this up)
     [KSPAddon(KSPAddon.Startup.MainMenu, false)]
     public class Debug_AutoLoadPersistentSaveOnStartup : MonoBehaviour
     {
@@ -33,13 +94,18 @@ namespace KerbQuake
                 {
                     FlightDriver.StartAndFocusVessel(game, 0);   
                 }
-                //CheatOptions.InfiniteFuel = true;
             }
         }
 
 
     }
 #endif
+
+    //################################################################################################################################
+    //
+    // KERBQUAKE
+    //
+    //################################################################################################################################
 
     [KSPAddon(KSPAddon.Startup.Flight, false)]
     public class KerbQuake : MonoBehaviour
