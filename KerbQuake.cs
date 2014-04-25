@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
 using KSP;
 
@@ -30,7 +31,7 @@ using KSP;
 // -------------------------------------------------------------------------------------------------------
 
 // #######################################################################################################
-// KERBQUAKE 1.0
+// KERBQUAKE 1.1
 // 
 // KerbQuake adds camera shake for various events while in IVA. The following events will shake
 // the cam as described below. The largest shakes (if many happen at once) will take precedence.
@@ -58,6 +59,10 @@ using KSP;
 //    - Parachutes will add to the atmospheric shake while semi-deployed.
 //    - Parachutes will damped the atmospheric shake while fully deployed.
 //    - Chutes will give a healthy shake when they go from semi-deployed to fully deployed.
+//    - RealChutes supported.
+//
+// Rovers
+//    - Wheeled vehicles will shake while moving over terrain.
 //  
 // #######################################################################################################
 
@@ -120,6 +125,7 @@ namespace KerbQuake
         float   maxLandedForce            = 15.0f;
         float   maxDecoupleForce          = 1000.0f;
         float   maxSpdDensity             = 2000.0f;
+        float   maxSpdRover               = 50.0f;
 
         // states
         float   decoupleShakeTime         = 0.0f;
@@ -143,6 +149,7 @@ namespace KerbQuake
         bool    doLanded                  = false;
         bool    doParaFull                = false;
         bool    doClamp                   = false;
+        bool    doRover                   = false;
 
         Vector3     shakeAmt              = new Vector3(0, 0, 0);
         Quaternion  shakeRot              = new Quaternion(0, 0, 0, 0);
@@ -277,10 +284,24 @@ namespace KerbQuake
                     {
                         ModuleParachute p = module as ModuleParachute;
 
-                        if (p.deploymentState == ModuleParachute.deploymentStates.SEMIDEPLOYED && !vessel.LandedOrSplashed && !PauseMenu.isOpen)
+                        if (p.deploymentState == ModuleParachute.deploymentStates.SEMIDEPLOYED && !vessel.LandedOrSplashed)
                             spdDensity *= 1.25f;
 
-                        if (p.deploymentState == ModuleParachute.deploymentStates.DEPLOYED && !vessel.LandedOrSplashed && !PauseMenu.isOpen)
+                        if (p.deploymentState == ModuleParachute.deploymentStates.DEPLOYED && !vessel.LandedOrSplashed)
+                            spdDensity *= 0.75f;
+                    }
+                    // RealChute Support
+                    if (module.moduleName.Contains("RealChuteModule"))
+                    {
+                        PartModule p = part.Modules["RealChuteModule"];
+                        Type pType = p.GetType();
+                        string depState    = (string)pType.GetField("depState").GetValue(p);
+                        string secDepState = (string)pType.GetField("secDepState").GetValue(p);
+
+                        if (depState == "PREDEPLOYED" || secDepState == "PREDEPLOYED")
+                            spdDensity *= 1.25f;
+
+                        if (depState == "DEPLOYED" || secDepState == "DEPLOYED")
                             spdDensity *= 0.75f;
                     }
                 }
@@ -305,14 +326,18 @@ namespace KerbQuake
 
                 // hack, whatever the .b color value is, always is this for mach fx, .21 something
                 if (afx.fxLight.color.b > 0.20f)
-                    spdDensity *= (afx.FxScalar * 10);
+                {
+                    // since we * 10, only do this if it's going to increase...
+                    if (afx.FxScalar > 0.1)
+                        spdDensity *= (afx.FxScalar * 10);
+                }
             }
 
             // dont go too crazy...
             spdDensity = Mathf.Clamp(spdDensity, 0, maxSpdDensity);
 
-            shakeAmt = ReturnLargerAmt((Random.insideUnitSphere * spdDensity) / 500000, shakeAmt);
-            shakeRot = ReturnLargerRot(Quaternion.Euler(0, 0, (Random.Range(-0.1f, 0.1f) * spdDensity) / 5000), shakeRot);
+            shakeAmt = ReturnLargerAmt((UnityEngine.Random.insideUnitSphere * spdDensity) / 500000, shakeAmt);
+            shakeRot = ReturnLargerRot(Quaternion.Euler(0, 0, (UnityEngine.Random.Range(-0.1f, 0.1f) * spdDensity) / 5000), shakeRot);
 
             //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
             //
@@ -323,6 +348,7 @@ namespace KerbQuake
             int chuteCheck = 0;                                 // re-do this every frame, check against previous frame to see if chute opened
 
             // a chute has popped...
+            // Note: Don't need to do this with realChutes as they tend to open slow anyway
             foreach (Part part in vessel.parts)
             {
                 foreach (PartModule module in part.Modules)
@@ -350,8 +376,8 @@ namespace KerbQuake
             // do the parachute pop shake
             if (paraShakeTime > 0 && doParaFull)
             {
-                shakeAmt = ReturnLargerAmt(Random.insideUnitSphere / 500, shakeAmt);
-                shakeRot = ReturnLargerRot(Quaternion.Euler(0, 0, Random.Range(-0.5f, 0.5f)), shakeRot);
+                shakeAmt = ReturnLargerAmt(UnityEngine.Random.insideUnitSphere / 500, shakeAmt);
+                shakeRot = ReturnLargerRot(Quaternion.Euler(0, 0, UnityEngine.Random.Range(-0.5f, 0.5f)), shakeRot);
                 paraShakeTime -= Time.deltaTime;
             }
             else if (paraShakeTime <= 0)
@@ -387,8 +413,8 @@ namespace KerbQuake
             // do the decoupler shake
             if (decoupleShakeTime > 0 && doDecoupleShake)
             {
-                shakeAmt = ReturnLargerAmt(Random.insideUnitSphere * decoupleShakeForce / 500000, shakeAmt);
-                shakeRot = ReturnLargerRot(Quaternion.Euler(0, 0, Random.Range(-0.5f, 0.5f)), shakeRot);
+                shakeAmt = ReturnLargerAmt(UnityEngine.Random.insideUnitSphere * decoupleShakeForce / 500000, shakeAmt);
+                shakeRot = ReturnLargerRot(Quaternion.Euler(0, 0, UnityEngine.Random.Range(-0.5f, 0.5f)), shakeRot);
                 decoupleShakeTime -= Time.deltaTime;
             }
             else if (decoupleShakeTime <= 0)
@@ -405,8 +431,8 @@ namespace KerbQuake
             // do the dock shake...we set the time from the handler, no need for other checks
             if (dockShakeTime > 0)
             {
-                shakeAmt = ReturnLargerAmt(Random.insideUnitSphere / 1000, shakeAmt);
-                shakeRot = ReturnLargerRot(Quaternion.Euler(0, 0, Random.Range(-0.07f, 0.07f)), shakeRot);
+                shakeAmt = ReturnLargerAmt(UnityEngine.Random.insideUnitSphere / 1000, shakeAmt);
+                shakeRot = ReturnLargerRot(Quaternion.Euler(0, 0, UnityEngine.Random.Range(-0.07f, 0.07f)), shakeRot);
                 dockShakeTime -= Time.deltaTime;
             }
 
@@ -446,15 +472,12 @@ namespace KerbQuake
             // do the parachute pop shake
             if (clampShakeTime > 0 && doClamp)
             {
-                shakeAmt = ReturnLargerAmt(Random.insideUnitSphere / 500, shakeAmt);
-                shakeRot = ReturnLargerRot(Quaternion.Euler(0, 0, Random.Range(-0.7f, 0.7f)), shakeRot);
+                shakeAmt = ReturnLargerAmt(UnityEngine.Random.insideUnitSphere / 500, shakeAmt);
+                shakeRot = ReturnLargerRot(Quaternion.Euler(0, 0, UnityEngine.Random.Range(-0.7f, 0.7f)), shakeRot);
                 clampShakeTime -= Time.deltaTime;
             }
             else if (clampShakeTime <= 0)
                 doClamp = false;
-
-
- 
 
             //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
             //
@@ -496,8 +519,8 @@ namespace KerbQuake
             // do engine shake...
             if (engineThrustTotal > 0 && doEngineShake)
             {
-                shakeAmt = ReturnLargerAmt((Random.insideUnitSphere * (engineThrustTotal / 1000)) / 800, shakeAmt);
-                shakeRot = ReturnLargerRot(Quaternion.Euler(0, 0, Random.Range(-0.8f, 0.8f) * (engineThrustTotal / 1000)), shakeRot);
+                shakeAmt = ReturnLargerAmt((UnityEngine.Random.insideUnitSphere * (engineThrustTotal / 1000)) / 800, shakeAmt);
+                shakeRot = ReturnLargerRot(Quaternion.Euler(0, 0, UnityEngine.Random.Range(-0.8f, 0.8f) * (engineThrustTotal / 1000)), shakeRot);
             }
             else if (engineThrustTotal <= 0)
             {
@@ -516,8 +539,8 @@ namespace KerbQuake
             // do the collision shake...we set the time from the handler, no need for other checks
             if (collisionShakeTime > 0)
             {
-                shakeAmt = ReturnLargerAmt(Random.insideUnitSphere / 50, shakeAmt);
-                shakeRot = ReturnLargerRot(Quaternion.Euler(0, 0, Random.Range(-1.5f, 1.5f)), shakeRot);
+                shakeAmt = ReturnLargerAmt(UnityEngine.Random.insideUnitSphere / 50, shakeAmt);
+                shakeRot = ReturnLargerRot(Quaternion.Euler(0, 0, UnityEngine.Random.Range(-1.5f, 1.5f)), shakeRot);
                 collisionShakeTime -= Time.deltaTime;
             }
 
@@ -568,8 +591,8 @@ namespace KerbQuake
             {
                 if (landedShakeTime > 0)
                 {
-                    shakeAmt = ReturnLargerAmt((Random.insideUnitSphere * landedShakeForce) / 3600, shakeAmt);
-                    shakeRot = ReturnLargerRot(Quaternion.Euler(0, 0, Random.Range(-0.1f, 0.1f) * landedShakeForce), shakeRot);
+                    shakeAmt = ReturnLargerAmt((UnityEngine.Random.insideUnitSphere * landedShakeForce) / 3600, shakeAmt);
+                    shakeRot = ReturnLargerRot(Quaternion.Euler(0, 0, UnityEngine.Random.Range(-0.1f, 0.1f) * landedShakeForce), shakeRot);
                     landedShakeTime -= Time.deltaTime;
                 }
                 else
@@ -580,6 +603,37 @@ namespace KerbQuake
 
             // set the speed for the next frame
             landedPrevSrfSpd = (float)FlightGlobals.ActiveVessel.srfSpeed;
+
+
+            //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+            //
+            // rover ground shakes
+            //
+            //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+            float spdRover = (float)FlightGlobals.ship_srfSpeed;
+
+            doRover = false;
+            foreach (Part part in FlightGlobals.ActiveVessel.Parts)
+            {
+                foreach (PartModule module in part.Modules)
+                {
+                    if (module.moduleName.Contains("ModuleLandingGear") || (module.moduleName.Contains("ModuleWheel")))
+                    {
+                        if (part.GroundContact)
+                            doRover = true;
+                    }
+                }
+            }
+
+            // dont go too crazy...
+            spdRover = Mathf.Clamp(spdRover, 0, maxSpdRover);
+
+            if (doRover)
+            {
+                shakeAmt = ReturnLargerAmt((UnityEngine.Random.insideUnitSphere * spdRover) / 50000, shakeAmt);
+                shakeRot = ReturnLargerRot(Quaternion.Euler(0, 0, (UnityEngine.Random.Range(-0.1f, 0.1f) * spdRover) / 500), shakeRot);
+            }
 
             //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
             //

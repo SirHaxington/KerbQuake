@@ -1,4 +1,14 @@
 // #######################################################################################################
+// KERBQUAKE 1.1
+// 
+// - Rover / wheeled vehicle shake added.
+// - RealChute support added (note RealChutes tend to open slowly so no "hard open" shake like in stock).
+// - Fixed bug on terminal velocity where it might reduce shake at the low end.
+// - Switched randoms to be UnityEngine specfic.
+//
+// #######################################################################################################
+
+// #######################################################################################################
 // KERBQUAKE 1.0
 // 
 // KerbQuake adds camera shake for various events while in IVA. The following events will shake
