@@ -24,7 +24,7 @@
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
-    <OutputPath>bin\GameData\KerbQuake\</OutputPath>
+    <OutputPath>bin\GameData\KerbQuake\Plugins\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -56,7 +56,8 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>copy/b/y "C:\Users\Jesse\Documents\Visual Studio 2013\Projects\KerbQuake\KerbQuake\bin\GameData\KerbQuake\KerbQuake.dll" "D:\Steam\SteamApps\common\Kerbal Space Program_DEV\GameData\KerbQuake"
+    <PostBuildEvent>if "$(ConfigurationName)" == "Release" copy/b/y "C:\Users\Jesse\Documents\Visual Studio 2013\Projects\KerbQuake\KerbQuake\bin\GameData\KerbQuake\Plugins\KerbQuake.dll" "D:\Steam\SteamApps\common\Kerbal Space Program_DEV\GameData\KerbQuake"
+if "$(ConfigurationName)" == "Debug" copy/b/y "C:\Users\Jesse\Documents\Visual Studio 2013\Projects\KerbQuake\KerbQuake\bin\Debug\KerbQuake.dll" "D:\Steam\SteamApps\common\Kerbal Space Program_DEV\GameData\KerbQuake"
 "D:\Steam\SteamApps\common\Kerbal Space Program_DEV\KSP.exe"
 
 </PostBuildEvent>

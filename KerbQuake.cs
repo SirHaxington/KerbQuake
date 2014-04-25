@@ -65,6 +65,9 @@ using KSP;
 //  
 // #######################################################################################################
 
+// Bugs:
+// extra shake on staging fairings
+
 namespace KerbQuake
 {
 #if DEBUG
@@ -138,7 +141,6 @@ namespace KerbQuake
         int     landedPrevParts           = 0;
         double  collisionClosest          = -1.0f;
         float   collisionShakeTime        = 0.0f;
-        float   collisionShakeForce       = 0.0f;
         
         bool    doDecoupleShake           = false;
         bool    doEngineShake             = false;
@@ -170,8 +172,15 @@ namespace KerbQuake
             // get distance between crashed part and vessel
             double dist = Vector3d.Distance(report.origin.transform.localPosition, FlightGlobals.ActiveVessel.transform.localPosition);
 
+            // this next bit is for finding how close we are to the ground
+            double realTerrainAlt = FlightGlobals.ActiveVessel.terrainAltitude;
+            double alt = FlightGlobals.ActiveVessel.altitude;
+
+            if (realTerrainAlt < 0)
+                realTerrainAlt = 0;
+
             // if part is closer, do longer shake and reset timer, dont do it outside of 30 (arbitrary)
-            if ((collisionClosest > dist) || (collisionClosest < 0) && (dist < 30))
+            if ((collisionClosest > dist) || (collisionClosest < 0) && (dist < 30) && (alt - realTerrainAlt) < 30)
             {
                 collisionClosest = dist;
                 
@@ -187,6 +196,8 @@ namespace KerbQuake
                     collisionShakeTime = collisionShakeTimes[1];
                 else
                     collisionShakeTime = collisionShakeTimes[0];
+
+                print(FlightGlobals.ActiveVessel.GetHeightFromSurface());
             }
         }
 
@@ -581,10 +592,13 @@ namespace KerbQuake
             //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
             // hopefully we've picked the largest values... also, don't shake while paused, looks dumb
-            if (!PauseMenu.isOpen)
+            if (InternalCamera.Instance != null)
             {
-                InternalCamera.Instance.camera.transform.localPosition = shakeAmt;
-                InternalCamera.Instance.camera.transform.localRotation *= shakeRot;
+                if (!PauseMenu.isOpen && InternalCamera.Instance.isActive)
+                {
+                    InternalCamera.Instance.camera.transform.localPosition = shakeAmt;
+                    InternalCamera.Instance.camera.transform.localRotation *= shakeRot;
+                }
             }
 
             // reset the shake vals every frame and start over...
