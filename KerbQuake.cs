@@ -110,7 +110,7 @@ namespace KerbQuake
     // KERBQUAKE
     //
     //################################################################################################################################
-
+   
     [KSPAddon(KSPAddon.Startup.Flight, false)]
     public class KerbQuake : MonoBehaviour
     {
@@ -154,7 +154,8 @@ namespace KerbQuake
         Vector3     shakeAmt              = new Vector3(0, 0, 0);
         Quaternion  shakeRot              = new Quaternion(0, 0, 0, 0);
         AerodynamicsFX afx;
-
+        bool gamePaused                   = false;
+        
         // Set up callbacks / events
         public void Awake()
         {
@@ -164,6 +165,8 @@ namespace KerbQuake
             GameEvents.onCrash.Add(this.onVesselCollision);
             GameEvents.onCrashSplashdown.Add(this.onVesselCollision);
 
+            GameEvents.onGamePause.Add(this.onGamePause);
+            GameEvents.onGameUnpause.Add(this.onGameUnpause);
             //Debug.Log("listening for crashes and collisions");
         }
 
@@ -171,7 +174,6 @@ namespace KerbQuake
         public void onVesselCollision(EventReport report)
         {
             //Debug.Log("handling collision");
-
             // get distance between crashed part and vessel
             double dist = Vector3d.Distance(report.origin.transform.localPosition, FlightGlobals.ActiveVessel.transform.localPosition);
 
@@ -239,6 +241,16 @@ namespace KerbQuake
             dockShakeTime = dockShakeTimes[0];
         }
 
+        public void onGamePause()
+        {
+            gamePaused = true;
+        }
+
+        public void onGameUnpause()
+        {
+            gamePaused = false;
+        }
+
         // find the more important rotation
         public Quaternion ReturnLargerRot(Quaternion newRot, Quaternion currentRot)
         {
@@ -258,6 +270,7 @@ namespace KerbQuake
         }
 
         // every frame... 
+        float logSt = 1.0f;
         public void Update()
         {
             Vessel vessel = FlightGlobals.ActiveVessel;             // easier to use vessel
@@ -486,7 +499,7 @@ namespace KerbQuake
             //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
             // check both engine types (rapier uses ModuleEnginesFX, most use ModuleEngines) then base shake on thrust amount
-            foreach (Part part in FlightGlobals.ActiveVessel.Parts)
+            foreach (Part part in vessel.Parts)
             {
                 foreach (PartModule module in part.Modules)
                 {
@@ -495,8 +508,22 @@ namespace KerbQuake
                         ModuleEnginesFX e = module as ModuleEnginesFX;
 
                         if (e.isOperational)
-                            engineThrustTotal += e.finalThrust;
+                        {
+                            float solidScalar = 1.0f;            // scale up SRBs
 
+                            if (e.propellants.Count > 0)
+                            {
+                                foreach (Propellant p in e.propellants)
+                                {
+                                    if (p.name == "SolidFuel")
+                                    {
+                                        solidScalar = 2.5f;
+                                    }
+                                }
+                            }
+                            engineThrustTotal += (e.finalThrust * solidScalar);
+                        }
+                         
                         if (engineThrustTotal > 0)
                             doEngineShake = true;
                     }
@@ -505,7 +532,21 @@ namespace KerbQuake
                         ModuleEngines e = module as ModuleEngines;
 
                         if (e.isOperational)
-                            engineThrustTotal += e.finalThrust;
+                        {
+                            float solidScalar = 1.0f;            // scale up SRBs
+
+                            if (e.propellants.Count > 0)
+                            {
+                                foreach (Propellant p in e.propellants)
+                                {
+                                    if (p.name == "SolidFuel")
+                                    {
+                                        solidScalar = 2.5f;
+                                    }
+                                }
+                            }
+                            engineThrustTotal += (e.finalThrust * solidScalar);
+                        }
 
                         if (engineThrustTotal > 0)
                             doEngineShake = true;
@@ -549,13 +590,58 @@ namespace KerbQuake
 
             //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
             //
+            // rover ground shakes
+            //
+            //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+            float spdRover = (float)FlightGlobals.ship_srfSpeed;
+
+            doRover = false;
+            float roverScalar = 1.0f;
+            foreach (Part part in vessel.Parts)
+            {
+                foreach (PartModule module in part.Modules)
+                {
+                    if (module.moduleName.Contains("ModuleLandingGear") || (module.moduleName.Contains("ModuleWheel")))
+                    {
+                        if (part.GroundContact)
+                        {
+                            if (vessel.landedAt.Length == 0 || vessel.landedAt.ToString() == "KSC")
+                            {
+                                roverScalar = 2.0f;
+                            }
+                            // maybe later, do biome specific shakes
+                            //CBAttributeMap currentBiome = vessel.mainBody.BiomeMap;
+                            //print(currentBiome.GetAtt(vessel.latitude * Mathf.Deg2Rad, vessel.longitude * Mathf.Deg2Rad).name);
+                            //print(currentBiome.ToString());
+
+                            doRover = true;
+
+                        }
+                    }
+                }
+            }
+
+            spdRover *= roverScalar;
+
+            // dont go too crazy...
+            spdRover = Mathf.Clamp(spdRover, 0, maxSpdRover);
+
+            if (doRover)
+            {
+                shakeAmt = ReturnLargerAmt((UnityEngine.Random.insideUnitSphere * spdRover) / 50000, shakeAmt);
+                shakeRot = ReturnLargerRot(Quaternion.Euler(0, 0, (UnityEngine.Random.Range(-0.1f, 0.1f) * spdRover) / 500), shakeRot);
+            }
+
+            //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+            //
             // landing shakes
             //
             //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
             // note, parts that break off may throw this off
             int landedCurParts = 0;
-            foreach (Part part in FlightGlobals.ActiveVessel.Parts)
+            foreach (Part part in vessel.Parts)
             {
                 if (part.GroundContact || part.WaterContact)
                     landedCurParts++;
@@ -579,6 +665,9 @@ namespace KerbQuake
                     landedShakeTime = landedShakeTimes[3];
                 else
                     landedShakeTime = landedShakeTimes[4];
+
+                if (doRover)
+                    landedShakeForce /= 2;
 
                 landedShakeForce = Mathf.Clamp(landedShakeForce, 0, maxLandedForce);
             }
@@ -607,36 +696,6 @@ namespace KerbQuake
 
             //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
             //
-            // rover ground shakes
-            //
-            //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-            float spdRover = (float)FlightGlobals.ship_srfSpeed;
-
-            doRover = false;
-            foreach (Part part in FlightGlobals.ActiveVessel.Parts)
-            {
-                foreach (PartModule module in part.Modules)
-                {
-                    if (module.moduleName.Contains("ModuleLandingGear") || (module.moduleName.Contains("ModuleWheel")))
-                    {
-                        if (part.GroundContact)
-                            doRover = true;
-                    }
-                }
-            }
-
-            // dont go too crazy...
-            spdRover = Mathf.Clamp(spdRover, 0, maxSpdRover);
-
-            if (doRover)
-            {
-                shakeAmt = ReturnLargerAmt((UnityEngine.Random.insideUnitSphere * spdRover) / 50000, shakeAmt);
-                shakeRot = ReturnLargerRot(Quaternion.Euler(0, 0, (UnityEngine.Random.Range(-0.1f, 0.1f) * spdRover) / 500), shakeRot);
-            }
-
-            //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-            //
             // DO THE HARLEMSHAKE! o/\o
             //
             //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -644,13 +703,12 @@ namespace KerbQuake
             // hopefully we've picked the largest values... also, don't shake while paused, looks dumb
             if (InternalCamera.Instance != null)
             {
-                if (!PauseMenu.isOpen && InternalCamera.Instance.isActive)
+                if (!gamePaused && InternalCamera.Instance.isActive)
                 {
                     InternalCamera.Instance.camera.transform.localPosition = shakeAmt;
                     InternalCamera.Instance.camera.transform.localRotation *= shakeRot;
                 }
             }
-
             // reset the shake vals every frame and start over...
             shakeAmt = new Vector3(0.0f, 0.0f, 0.0f);
             shakeRot = new Quaternion(0.0f, 0.0f, 0.0f, 0.0f);
