@@ -201,8 +201,6 @@ namespace KerbQuake
                     collisionShakeTime = collisionShakeTimes[1];
                 else
                     collisionShakeTime = collisionShakeTimes[0];
-
-                //print(FlightGlobals.ActiveVessel.GetHeightFromSurface());
             }
         }
 
@@ -622,7 +620,6 @@ namespace KerbQuake
                     {
                         if (part.Landed)
                         {
-                            print("doing it");
                             if (vessel.landedAt.Length == 0 || vessel.landedAt.ToString() == "KSC")
                             {
                                 roverScalar = 2.0f;
