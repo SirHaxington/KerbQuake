@@ -602,7 +602,7 @@ namespace KerbQuake
             {
                 foreach (PartModule module in part.Modules)
                 {
-                    if (module.moduleName.Contains("ModuleLandingGear") || (module.moduleName.Contains("ModuleWheel")))
+                    if (module.moduleName.Contains("ModuleWheel"))
                     {
                         if (part.GroundContact)
                         {
@@ -616,7 +616,19 @@ namespace KerbQuake
                             //print(currentBiome.ToString());
 
                             doRover = true;
-
+                        }
+                    }
+                    if (module.moduleName.Contains("ModuleLandingGear"))
+                    {
+                        if (part.Landed)
+                        {
+                            print("doing it");
+                            if (vessel.landedAt.Length == 0 || vessel.landedAt.ToString() == "KSC")
+                            {
+                                roverScalar = 2.0f;
+                            }
+                        
+                            doRover = true;
                         }
                     }
                 }
