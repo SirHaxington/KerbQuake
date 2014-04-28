@@ -121,7 +121,7 @@ namespace KerbQuake
         float[] clampShakeTimes           = new float[] { 0.5f };
         float[] dockShakeTimes            = new float[] { 0.25f };
         float[] collisionShakeTimes       = new float[] { 0.1f, 0.2f, 0.35f, 0.5f, 0.65f, 0.75f };
-        float   maxEngineForce            = 4000.0f;
+        float   maxEngineForce            = 3500.0f;
         float   maxLandedForce            = 15.0f;
         float   maxDecoupleForce          = 1000.0f;
         float   maxSpdDensity             = 2000.0f;
@@ -151,10 +151,13 @@ namespace KerbQuake
         bool    doClamp                   = false;
         bool    doRover                   = false;
 
-        Vector3     shakeAmt              = new Vector3(0, 0, 0);
-        Quaternion  shakeRot              = new Quaternion(0, 0, 0, 0);
-        AerodynamicsFX afx;
-        bool gamePaused                   = false;
+        Vector3         shakeAmt          = new Vector3(0, 0, 0);
+        Quaternion      shakeRot          = new Quaternion(0, 0, 0, 0);
+        AerodynamicsFX  afx;
+        bool            gamePaused        = false;
+        string          evaAnimState      = "";
+        double          evaFuel           = 5.0;        
+        
         
         // Set up callbacks / events
         public void Awake()
@@ -276,7 +279,7 @@ namespace KerbQuake
             // safety check
             if (vessel == null || !HighLogic.LoadedSceneIsFlight)
                 return;
-
+            
             //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
             //
             // atmospheric shake
@@ -612,7 +615,7 @@ namespace KerbQuake
                             //CBAttributeMap currentBiome = vessel.mainBody.BiomeMap;
                             //print(currentBiome.GetAtt(vessel.latitude * Mathf.Deg2Rad, vessel.longitude * Mathf.Deg2Rad).name);
                             //print(currentBiome.ToString());
-
+                            
                             doRover = true;
                         }
                     }
@@ -702,6 +705,31 @@ namespace KerbQuake
             // set the speed for the next frame
             landedPrevSrfSpd = (float)FlightGlobals.ActiveVessel.srfSpeed;
 
+            //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+            //
+            // EVA Shakes (under construction)
+            //
+            // to do: shake on state changes (take in surface speed on landing), shake on rcs use (fuel changes), shake based on anim speed
+            //      
+            //
+            //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+            if (vessel.isEVA)
+            {
+                KerbalEVA eva = (KerbalEVA)vessel.rootPart.Modules["KerbalEVA"];
+                
+                if (eva.fsm.currentStateName != evaAnimState)
+                {
+                    evaAnimState = eva.fsm.currentStateName;
+                    //print(evaAnimState);
+                    //print(eva.runSpeed);
+                }
+
+                if (eva.Fuel != evaFuel)
+                {
+                    evaFuel = eva.Fuel;
+                    //print(evaFuel);
+                }
+            }
 
             //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
             //
@@ -714,10 +742,11 @@ namespace KerbQuake
             {
                 if (!gamePaused && InternalCamera.Instance.isActive)
                 {
-                    InternalCamera.Instance.camera.transform.localPosition = shakeAmt;
-                    InternalCamera.Instance.camera.transform.localRotation *= shakeRot;
+                   InternalCamera.Instance.camera.transform.localPosition = shakeAmt;
+                   InternalCamera.Instance.camera.transform.localRotation *= shakeRot;
                 }
             }
+
             // reset the shake vals every frame and start over...
             shakeAmt = new Vector3(0.0f, 0.0f, 0.0f);
             shakeRot = new Quaternion(0.0f, 0.0f, 0.0f, 0.0f);
