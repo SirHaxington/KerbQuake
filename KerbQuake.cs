@@ -63,6 +63,9 @@ using KSP;
 //
 // Rovers
 //    - Wheeled vehicles will shake while moving over terrain.
+//
+// EVA (FPIVA)
+//    - Shake on RCS use
 //  
 // #######################################################################################################
 
@@ -121,6 +124,7 @@ namespace KerbQuake
         float[] clampShakeTimes           = new float[] { 0.5f };
         float[] dockShakeTimes            = new float[] { 0.25f };
         float[] collisionShakeTimes       = new float[] { 0.1f, 0.2f, 0.35f, 0.5f, 0.65f, 0.75f };
+        float[] evaShakeTimes             = new float[] { 0.1f, 0.2f, 0.35f, 0.5f, 0.65f, 0.75f };
         float   maxEngineForce            = 3500.0f;
         float   maxLandedForce            = 15.0f;
         float   maxDecoupleForce          = 1000.0f;
@@ -143,6 +147,7 @@ namespace KerbQuake
         int     landedPrevParts           = 0;
         double  collisionClosest          = -1.0f;
         float   collisionShakeTime        = 0.0f;
+        float   evaShakeTime              = 0.0f;
         
         bool    doDecoupleShake           = false;
         bool    doEngineShake             = false;
@@ -150,6 +155,7 @@ namespace KerbQuake
         bool    doParaFull                = false;
         bool    doClamp                   = false;
         bool    doRover                   = false;
+        bool    doEVA                     = false;
 
         Vector3         shakeAmt          = new Vector3(0, 0, 0);
         Quaternion      shakeRot          = new Quaternion(0, 0, 0, 0);
@@ -350,8 +356,11 @@ namespace KerbQuake
             // dont go too crazy...
             spdDensity = Mathf.Clamp(spdDensity, 0, maxSpdDensity);
 
-            shakeAmt = ReturnLargerAmt((UnityEngine.Random.insideUnitSphere * spdDensity) / 500000, shakeAmt);
-            shakeRot = ReturnLargerRot(Quaternion.Euler(0, 0, (UnityEngine.Random.Range(-0.1f, 0.1f) * spdDensity) / 5000), shakeRot);
+            if (!vessel.isEVA)
+            {
+                shakeAmt = ReturnLargerAmt((UnityEngine.Random.insideUnitSphere * spdDensity) / 500000, shakeAmt);
+                shakeRot = ReturnLargerRot(Quaternion.Euler(0, 0, (UnityEngine.Random.Range(-0.1f, 0.1f) * spdDensity) / 5000), shakeRot);
+            }
 
             //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
             //
@@ -639,7 +648,7 @@ namespace KerbQuake
             // dont go too crazy...
             spdRover = Mathf.Clamp(spdRover, 0, maxSpdRover);
 
-            if (doRover)
+            if (doRover && !vessel.isEVA)
             {
                 shakeAmt = ReturnLargerAmt((UnityEngine.Random.insideUnitSphere * spdRover) / 50000, shakeAmt);
                 shakeRot = ReturnLargerRot(Quaternion.Euler(0, 0, (UnityEngine.Random.Range(-0.1f, 0.1f) * spdRover) / 500), shakeRot);
@@ -688,7 +697,7 @@ namespace KerbQuake
             landedPrevParts = landedCurParts;
 
             // do the landing / touching ground / water shake
-            if (doLanded)
+            if (doLanded && !vessel.isEVA)
             {
                 if (landedShakeTime > 0)
                 {
@@ -709,25 +718,41 @@ namespace KerbQuake
             //
             // EVA Shakes (under construction)
             //
-            // to do: shake on state changes (take in surface speed on landing), shake on rcs use (fuel changes), shake based on anim speed
+            // to do: shake on state changes (take in surface speed on landing), shake based on anim speed
             //      
             //
             //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
             if (vessel.isEVA)
             {
                 KerbalEVA eva = (KerbalEVA)vessel.rootPart.Modules["KerbalEVA"];
-                
+
                 if (eva.fsm.currentStateName != evaAnimState)
                 {
+                    evaShakeTime = evaShakeTimes[4];
                     evaAnimState = eva.fsm.currentStateName;
-                    //print(evaAnimState);
-                    //print(eva.runSpeed);
+ 
+                    print(evaShakeTime);
+
+                    print(evaAnimState);
+                }
+                
+                if (evaShakeTime > 0)
+                {
+                    // works, needs states now for timers and amount, need walk on kerbin special case
+                    shakeAmt = ReturnLargerAmt(UnityEngine.Random.insideUnitSphere / 55000, shakeAmt);
+                    //shakeRot = ReturnLargerRot(Quaternion.Euler(0, 0, UnityEngine.Random.Range(-0.07f, 0.07f)), shakeRot);
+
+                    print(evaShakeTime);
+                    evaShakeTime -= Time.deltaTime;
                 }
 
-                if (eva.Fuel != evaFuel)
+                // RCS Cam Shake, works with FirstPersonIVA mod
+                if (Math.Round(eva.Fuel, 3) != Math.Round(evaFuel, 3))
                 {
                     evaFuel = eva.Fuel;
-                    //print(evaFuel);
+                    shakeAmt = ReturnLargerAmt(UnityEngine.Random.insideUnitSphere / 65000, shakeAmt);
+                    //shakeRot = ReturnLargerRot(Quaternion.Euler(0, 0, UnityEngine.Random.Range(-0.07f, 0.07f)), shakeRot);
+                    Math.Round(eva.Fuel, 3);
                 }
             }
 
@@ -746,7 +771,17 @@ namespace KerbQuake
                    InternalCamera.Instance.camera.transform.localRotation *= shakeRot;
                 }
             }
+            if (vessel.isEVA && FlightCamera.fetch.minDistance == 0.01f && FlightCamera.fetch.maxDistance == 0.01f)
+            {
+                if (shakeAmt.x != 0 && shakeAmt.y != 0 && shakeAmt.z != 0)
+                {
+                    Debug.Log(shakeAmt.ToString("F9"));
+                    FlightCamera.fetch.transform.localPosition = FlightCamera.fetch.transform.localPosition + shakeAmt;
+                    //FlightCamera.fetch.transform.localRotation *= shakeRot;
 
+                }
+            }
+            
             // reset the shake vals every frame and start over...
             shakeAmt = new Vector3(0.0f, 0.0f, 0.0f);
             shakeRot = new Quaternion(0.0f, 0.0f, 0.0f, 0.0f);
