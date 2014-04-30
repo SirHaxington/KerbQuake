@@ -148,7 +148,11 @@ namespace KerbQuake
         double  collisionClosest          = -1.0f;
         float   collisionShakeTime        = 0.0f;
         float   evaShakeTime              = 0.0f;
-        
+        int     evaAnimShakeAmount        = 55000;
+        int     evaRCSShakeAmount         = 40000;
+        float   evaSrfSped                = 0;
+        float   evaSrfSpedPrev            = 0;
+
         bool    doDecoupleShake           = false;
         bool    doEngineShake             = false;
         bool    doLanded                  = false;
@@ -718,42 +722,67 @@ namespace KerbQuake
             //
             // EVA Shakes (under construction)
             //
-            // to do: shake on state changes (take in surface speed on landing), shake based on anim speed
-            //      
+            // to do: polish shakes (check on a few planets), check rag doll on fall not working
             //
             //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
             if (vessel.isEVA)
             {
                 KerbalEVA eva = (KerbalEVA)vessel.rootPart.Modules["KerbalEVA"];
 
+                // if an anim has changed
                 if (eva.fsm.currentStateName != evaAnimState)
                 {
-                    evaShakeTime = evaShakeTimes[4];
-                    evaAnimState = eva.fsm.currentStateName;
- 
-                    print(evaShakeTime);
+                    //print(evaSrfSpedPrev);
+                    if (eva.fsm.currentStateName == "Landing")                               // standard landing from a jump / RCS
+                    {
+                        evaShakeTime = evaShakeTimes[2];
+                        evaAnimShakeAmount = (int)(45000 / evaSrfSpedPrev);
 
-                    print(evaAnimState);
+                    }
+                    else if (eva.fsm.currentStateName == "Ragdoll")                         // we landed too hard / jumped and landed at an odd angle
+                    {
+                        evaShakeTime = evaShakeTimes[5];
+                        evaAnimShakeAmount = (int)(8000 / evaSrfSpedPrev);
+                    }
+                    else if (eva.fsm.currentStateName == "Low G Bound (Grounded - FPS)")    // each step on a low g world should be felt
+                    {
+                        evaShakeTime = evaShakeTimes[3];
+                        evaAnimShakeAmount = (int)(50000);
+                    }
+                    else if (eva.fsm.currentStateName == "Ladder (Acquire)")                 // feel the grab?
+                    {
+                        evaShakeTime = evaShakeTimes[2];
+                        evaAnimShakeAmount = (int)(10000);
+                    }
+                    evaAnimState = eva.fsm.currentStateName;
+                    //print(evaAnimState);
                 }
-                
+                else if (eva.fsm.currentStateName == "Ragdoll" && vessel.Landed)    // when ragging and sliding along the surface, keep shaking
+                {
+                    evaShakeTime = evaShakeTimes[5];
+                    evaAnimShakeAmount = (int)(8000 / evaSrfSpedPrev);
+                }
+
                 if (evaShakeTime > 0)
                 {
-                    // works, needs states now for timers and amount, need walk on kerbin special case
-                    shakeAmt = ReturnLargerAmt(UnityEngine.Random.insideUnitSphere / 55000, shakeAmt);
+                    shakeAmt = ReturnLargerAmt(UnityEngine.Random.insideUnitSphere / evaAnimShakeAmount, shakeAmt);
                     //shakeRot = ReturnLargerRot(Quaternion.Euler(0, 0, UnityEngine.Random.Range(-0.07f, 0.07f)), shakeRot);
-
-                    print(evaShakeTime);
                     evaShakeTime -= Time.deltaTime;
                 }
 
-                // RCS Cam Shake, works with FirstPersonIVA mod
+                // RCS Cam Shake
                 if (Math.Round(eva.Fuel, 3) != Math.Round(evaFuel, 3))
                 {
                     evaFuel = eva.Fuel;
-                    shakeAmt = ReturnLargerAmt(UnityEngine.Random.insideUnitSphere / 65000, shakeAmt);
+                    shakeAmt = ReturnLargerAmt(UnityEngine.Random.insideUnitSphere / evaRCSShakeAmount, shakeAmt);
                     //shakeRot = ReturnLargerRot(Quaternion.Euler(0, 0, UnityEngine.Random.Range(-0.07f, 0.07f)), shakeRot);
                     Math.Round(eva.Fuel, 3);
                 }
+
+                // grab frame two behind to test against
+                evaSrfSpedPrev = evaSrfSped;
+                evaSrfSped     = (float)vessel.srfSpeed;
+                
             }
 
             //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -775,7 +804,6 @@ namespace KerbQuake
             {
                 if (shakeAmt.x != 0 && shakeAmt.y != 0 && shakeAmt.z != 0)
                 {
-                    Debug.Log(shakeAmt.ToString("F9"));
                     FlightCamera.fetch.transform.localPosition = FlightCamera.fetch.transform.localPosition + shakeAmt;
                     //FlightCamera.fetch.transform.localRotation *= shakeRot;
 
