@@ -20,7 +20,7 @@ using KSP;
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, 
 // THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE 
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE 
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE ;
 // FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES 
 // (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; 
 // LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY 
@@ -31,13 +31,15 @@ using KSP;
 // -------------------------------------------------------------------------------------------------------
 
 // #######################################################################################################
-// KERBQUAKE 1.1
+// KERBQUAKE 1.2
 // 
 // KerbQuake adds camera shake for various events while in IVA. The following events will shake
 // the cam as described below. The largest shakes (if many happen at once) will take precedence.
 //
 // Engine Shakes:
 //    - The combined engines total thrust will shake the cam accordingly. Throttle up the mainsails!
+//    - Intake air engines will barely shake at all.
+//    - SRBs shake 2.5x more than their liquid fuel bretheren.
 // 
 // Atmospheric Shakes:
 //    - The more dense and faster though atmospheres you move will shake harder.
@@ -69,12 +71,9 @@ using KSP;
 //    - Shakes on ladder grabs.
 //    - Landings shake according to landing speed.
 //    - Ragdolls shake harder, continue as you slide across surfaces.
+//    - Shakes on low-g steps while walking / running.
 //  
 // #######################################################################################################
-
-// Bugs:
-// overshake on spaceplanes
-// look into update function errors people get with certain mods
 
 namespace KerbQuake
 {
@@ -127,12 +126,14 @@ namespace KerbQuake
         float[] paraShakeTimes            = new float[] { 0.4f };
         float[] clampShakeTimes           = new float[] { 0.5f };
         float[] dockShakeTimes            = new float[] { 0.25f };
+        float[] atmoBurnDownTimes         = new float[] { 1.0f };
         float[] collisionShakeTimes       = new float[] { 0.1f, 0.2f, 0.35f, 0.5f, 0.65f, 0.75f };
         float[] evaShakeTimes             = new float[] { 0.1f, 0.2f, 0.35f, 0.5f, 0.65f, 0.75f };
         float   maxEngineForce            = 3500.0f;
         float   maxLandedForce            = 15.0f;
         float   maxDecoupleForce          = 1000.0f;
         float   maxSpdDensity             = 2000.0f;
+        float   maxSpdDensityEarly        = 175.0f;
         float   maxSpdRover               = 50.0f;
 
         // states
@@ -156,6 +157,7 @@ namespace KerbQuake
         int     evaRCSShakeAmount         = 40000;
         float   evaSrfSped                = 0;
         float   evaSrfSpedPrev            = 0;
+        float   burnDownTime              = 0.0f;
 
         bool    doDecoupleShake           = false;
         bool    doEngineShake             = false;
@@ -301,8 +303,11 @@ namespace KerbQuake
             //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
             // up the shake based on atmopshereic density and surface speed
-            float spdDensity = (float)vessel.atmDensity * (float)FlightGlobals.ship_srfSpeed;
-            
+            float spdDensity = (float)(vessel.atmDensity) * (float)FlightGlobals.ship_srfSpeed;
+
+            // limit here, mainly for space planes
+            spdDensity = Mathf.Clamp(spdDensity, 0, maxSpdDensityEarly);
+
             // exagerate shake if semideployed, dampen if deployed
             foreach (Part part in vessel.Parts)
             {
@@ -350,7 +355,9 @@ namespace KerbQuake
             {
                 // hack, whatever the .b color value is, always is this for re-entry, .11 something
                 if (afx.fxLight.color.b < 0.12f)
-                    spdDensity *= (afx.FxScalar * 1000);
+                {
+                    burnDownTime = atmoBurnDownTimes[0];
+                }
 
                 // hack, whatever the .b color value is, always is this for mach fx, .21 something
                 if (afx.fxLight.color.b > 0.20f)
@@ -359,6 +366,13 @@ namespace KerbQuake
                     if (afx.FxScalar > 0.1)
                         spdDensity *= (afx.FxScalar * 10);
                 }
+            }
+
+            // ease back into normal atmophere from re-entry
+            if (burnDownTime > 0)
+            {
+                spdDensity *= (afx.FxScalar * burnDownTime * 1000);
+                burnDownTime -= Time.deltaTime;
             }
 
             // dont go too crazy...
@@ -551,7 +565,7 @@ namespace KerbQuake
 
                         if (e.isOperational)
                         {
-                            float solidScalar = 1.0f;            // scale up SRBs
+                            float typeScalar = 1.0f;            // scale up SRBs, down jets
 
                             if (e.propellants.Count > 0)
                             {
@@ -559,11 +573,15 @@ namespace KerbQuake
                                 {
                                     if (p.name == "SolidFuel")
                                     {
-                                        solidScalar = 2.5f;
+                                        typeScalar = 2.5f;
+                                    }
+                                    else if (p.name == "IntakeAir")
+                                    {
+                                        typeScalar = 0.01f;
                                     }
                                 }
                             }
-                            engineThrustTotal += (e.finalThrust * solidScalar);
+                            engineThrustTotal += (e.finalThrust * typeScalar);
                         }
 
                         if (engineThrustTotal > 0)
@@ -578,6 +596,7 @@ namespace KerbQuake
             // do engine shake...
             if (engineThrustTotal > 0 && doEngineShake)
             {
+                print(engineThrustTotal);
                 shakeAmt = ReturnLargerAmt((UnityEngine.Random.insideUnitSphere * (engineThrustTotal / 1000)) / 800, shakeAmt);
                 shakeRot = ReturnLargerRot(Quaternion.Euler(0, 0, UnityEngine.Random.Range(-0.8f, 0.8f) * (engineThrustTotal / 1000)), shakeRot);
             }
@@ -640,7 +659,7 @@ namespace KerbQuake
                     {
                         if (part.Landed)
                         {
-                            if (vessel.landedAt.Length == 0 || vessel.landedAt.ToString() == "KSC")
+                            if (vessel.landedAt.Length == 0 || vessel.landedAt.ToString() == "KSC")         // basically, in and around KSC
                             {
                                 roverScalar = 2.0f;
                             }
@@ -753,7 +772,7 @@ namespace KerbQuake
                         evaShakeTime = evaShakeTimes[2];
                         evaAnimShakeAmount = (int)(50000);
                     }
-                    else if (eva.fsm.currentStateName == "Ladder (Acquire)")                 // feel the grab?
+                    else if (eva.fsm.currentStateName == "Ladder (Acquire)")                 // feel the grab a bit more
                     {
                         evaShakeTime = evaShakeTimes[5];
                         evaAnimShakeAmount = (int)(1000000);
