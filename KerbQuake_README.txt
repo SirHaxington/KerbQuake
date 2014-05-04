@@ -4,7 +4,7 @@
 // - First Person EVA shake support if using the "Through the Eyes of a Kerbal" (ForceIVA) mod.
 // - Overall atmospheric shake capped so space planes aren't crazy on take off.
 // - Intake air based engines shake next to nothing for smoother plane rides.
-// - SRBS shake 2.5x more than their liquid fuel bretheren.
+// - SRBS shake 2.5x more than their liquid fuel brethren.
 // - Fixes for landing gear not counting for ground based shakes.
 // - Smoother transitions out of re-entry shake.
 //

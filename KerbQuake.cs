@@ -596,7 +596,6 @@ namespace KerbQuake
             // do engine shake...
             if (engineThrustTotal > 0 && doEngineShake)
             {
-                print(engineThrustTotal);
                 shakeAmt = ReturnLargerAmt((UnityEngine.Random.insideUnitSphere * (engineThrustTotal / 1000)) / 800, shakeAmt);
                 shakeRot = ReturnLargerRot(Quaternion.Euler(0, 0, UnityEngine.Random.Range(-0.8f, 0.8f) * (engineThrustTotal / 1000)), shakeRot);
             }
@@ -827,13 +826,25 @@ namespace KerbQuake
                 }
             }
 
+
+            // for a different first person EVA mod...
+            bool FPEVAMod = false;
+            foreach (Part part in vessel.Parts)
+                foreach (PartModule module in part.Modules)
+                    if (module.moduleName.Contains("EVACamera"))
+                        FPEVAMod = true;
+
             // rotation is wonky in EVA, skip
             if (vessel.isEVA && FlightCamera.fetch.minDistance == 0.01f && FlightCamera.fetch.maxDistance == 0.01f)
             {
                 if (shakeAmt.x != 0 && shakeAmt.y != 0 && shakeAmt.z != 0)
                     FlightCamera.fetch.transform.localPosition += shakeAmt;
             }
-            
+            else if (vessel.isEVA && FPEVAMod)
+            {
+                FlightCamera.fetch.transform.localPosition += (shakeAmt * 1000);
+            }
+
             // reset the shake vals every frame and start over...
             shakeAmt = new Vector3(0.0f, 0.0f, 0.0f);
             shakeRot = new Quaternion(0.0f, 0.0f, 0.0f, 0.0f);
