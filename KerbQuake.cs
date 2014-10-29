@@ -1,5 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
+using System.Collections;
+using System.Reflection;
 using UnityEngine;
 using KSP;
 
@@ -323,19 +324,20 @@ namespace KerbQuake
                         if (p.deploymentState == ModuleParachute.deploymentStates.DEPLOYED && !vessel.LandedOrSplashed)
                             spdDensity *= 0.75f;
                     }
-                    // RealChute Support
+                    // RealChute Support, reworked to be compatible with RealChute v1.2
                     if (module.moduleName.Contains("RealChuteModule"))
                     {
                         PartModule p = part.Modules["RealChuteModule"];
                         Type pType = p.GetType();
-                        string depState    = (string)pType.GetField("depState").GetValue(p);
-                        string secDepState = (string)pType.GetField("secDepState").GetValue(p);
-
-                        if (depState == "PREDEPLOYED" || secDepState == "PREDEPLOYED")
-                            spdDensity *= 1.25f;
-
-                        if (depState == "DEPLOYED" || secDepState == "DEPLOYED")
-                            spdDensity *= 0.75f;
+                        object parachutes = pType.GetField("parachutes").GetValue(p);
+                        foreach (object parachute in (parachutes as IEnumerable))
+                        {
+                            Type cType = parachute.GetType();							
+                            if (cType.GetField("depState").GetValue(parachute) == "PREDEPLOYED")
+                                spdDensity *= 1.25f;
+                            if ((cType.GetField("depState").GetValue(parachute) == "DEPLOYED") || (cType.GetField("depState").GetValue(parachute) == "LOWDEPLOYED"))
+                                spdDensity *= 0.75f;
+                        }
                     }
                 }
             }
