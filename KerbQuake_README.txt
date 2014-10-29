@@ -1,4 +1,13 @@
 // #######################################################################################################
+// KERBQUAKE 1.2.1 (dx/dt's unofficial optimisation patch for KerbQuake v1.2)
+//
+// Bugfixes:
+// 	  - Shaking removed from the probe control room when using probe control room mod
+//    - Fixed RealChute compatibility broken with RealChute 1.2 update
+//
+// #######################################################################################################
+
+// #######################################################################################################
 // KERBQUAKE 1.2
 // 
 // - First Person EVA shake support if using the "Through the Eyes of a Kerbal" (ForceIVA) mod.
