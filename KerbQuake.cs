@@ -30,7 +30,13 @@ using KSP;
 // EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 // -------------------------------------------------------------------------------------------------------
-
+// #######################################################################################################
+// KERBQUAKE 1.2.1 (dx/dt's unofficial optimisation patch for KerbQuake v1.2)
+//
+// Bugfixes:
+// 	  - Shaking removed from the probe control room when using probe control room mod
+//    - Fixed RealChute compatibility broken with RealChute 1.2 update
+//
 // #######################################################################################################
 // KERBQUAKE 1.2
 // 
