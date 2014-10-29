@@ -816,10 +816,16 @@ namespace KerbQuake
             //
             //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+            // Set isCrewed to true if not unmanned, used to remove shake in control room when using ProbeControlRoom mod
+            bool isCrewed = false;
+            foreach (Part part in vessel.Parts)
+                if (part.protoModuleCrew.Count >= 1)
+                    isCrewed = true;
+			
             // hopefully we've picked the largest values... also, don't shake while paused, looks dumb
             if (InternalCamera.Instance != null)
             {
-                if (!gamePaused && InternalCamera.Instance.isActive)
+                if (!gamePaused && InternalCamera.Instance.isActive && isCrewed) // isCrewed for shake only if not in control room
                 {
                    InternalCamera.Instance.camera.transform.localPosition = shakeAmt;
                    InternalCamera.Instance.camera.transform.localRotation *= shakeRot;
