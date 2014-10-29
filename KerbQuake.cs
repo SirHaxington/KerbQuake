@@ -1,5 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
+using System.Collections;
+using System.Reflection;
 using UnityEngine;
 using KSP;
 
@@ -29,7 +30,13 @@ using KSP;
 // EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 // -------------------------------------------------------------------------------------------------------
-
+// #######################################################################################################
+// KERBQUAKE 1.2.1 (dx/dt's unofficial optimisation patch for KerbQuake v1.2)
+//
+// Bugfixes:
+// 	  - Shaking removed from the probe control room when using probe control room mod
+//    - Fixed RealChute compatibility broken with RealChute 1.2 update
+//
 // #######################################################################################################
 // KERBQUAKE 1.2
 // 
@@ -323,19 +330,20 @@ namespace KerbQuake
                         if (p.deploymentState == ModuleParachute.deploymentStates.DEPLOYED && !vessel.LandedOrSplashed)
                             spdDensity *= 0.75f;
                     }
-                    // RealChute Support
+                    // RealChute Support, reworked to be compatible with RealChute v1.2
                     if (module.moduleName.Contains("RealChuteModule"))
                     {
                         PartModule p = part.Modules["RealChuteModule"];
                         Type pType = p.GetType();
-                        string depState    = (string)pType.GetField("depState").GetValue(p);
-                        string secDepState = (string)pType.GetField("secDepState").GetValue(p);
-
-                        if (depState == "PREDEPLOYED" || secDepState == "PREDEPLOYED")
-                            spdDensity *= 1.25f;
-
-                        if (depState == "DEPLOYED" || secDepState == "DEPLOYED")
-                            spdDensity *= 0.75f;
+                        object parachutes = pType.GetField("parachutes").GetValue(p);
+                        foreach (object parachute in (parachutes as IEnumerable))
+                        {
+                            Type cType = parachute.GetType();							
+                            if (cType.GetField("depState").GetValue(parachute) == "PREDEPLOYED")
+                                spdDensity *= 1.25f;
+                            if ((cType.GetField("depState").GetValue(parachute) == "DEPLOYED") || (cType.GetField("depState").GetValue(parachute) == "LOWDEPLOYED"))
+                                spdDensity *= 0.75f;
+                        }
                     }
                 }
             }
@@ -816,10 +824,16 @@ namespace KerbQuake
             //
             //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+            // Set isCrewed to true if not unmanned, used to remove shake in control room when using ProbeControlRoom mod
+            bool isCrewed = false;
+            foreach (Part part in vessel.Parts)
+                if (part.protoModuleCrew.Count >= 1)
+                    isCrewed = true;
+			
             // hopefully we've picked the largest values... also, don't shake while paused, looks dumb
             if (InternalCamera.Instance != null)
             {
-                if (!gamePaused && InternalCamera.Instance.isActive)
+                if (!gamePaused && InternalCamera.Instance.isActive && isCrewed) // isCrewed for shake only if not in control room
                 {
                    InternalCamera.Instance.camera.transform.localPosition = shakeAmt;
                    InternalCamera.Instance.camera.transform.localRotation *= shakeRot;
